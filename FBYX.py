@@ -122,7 +122,7 @@ def close_all(conn, cu):
 class MyFrame2(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, id=wx.ID_ANY, title=u"==翻倍量化选股==", pos=wx.DefaultPosition,
-                          size=wx.Size(1600, 900),
+                          size=wx.Size(1200, 700),
                           style=wx.DEFAULT_FRAME_STYLE | wx.HSCROLL | wx.TAB_TRAVERSAL | wx.VSCROLL, name=u"QDAPP")
 
         #self.SetSizeHintsSz(wx.DefaultSize, wx.DefaultSize)
@@ -173,7 +173,8 @@ class MyFrame2(wx.Frame):
         #self.m_button12 = wx.Button(self.m_panel2, wx.ID_ANY, u"停止读取", wx.DefaultPosition, wx.DefaultSize, 0)
         #bSizer2.Add(self.m_button12, 0, wx.ALL, 15)
 
-
+        self.m_button1312 = wx.Button(self.m_panel2, wx.ID_ANY, u"回测调试", wx.DefaultPosition, wx.DefaultSize, 0)
+        bSizer2.Add(self.m_button1312, 0, wx.ALL, 15)
 
         self.m_button13 = wx.Button(self.m_panel2, wx.ID_ANY, u"显示当日入选股", wx.DefaultPosition, wx.DefaultSize, 0)
         bSizer2.Add(self.m_button13, 0, wx.ALL, 15)
@@ -186,6 +187,8 @@ class MyFrame2(wx.Frame):
 
         self.m_button1311 = wx.Button(self.m_panel2, wx.ID_ANY, u"停止HT交易", wx.DefaultPosition, wx.DefaultSize, 0)
         bSizer2.Add(self.m_button1311, 0, wx.ALL, 15)
+
+
 
         self.m_panel2.SetSizer(bSizer2)
         self.m_panel2.Layout()
@@ -233,6 +236,7 @@ class MyFrame2(wx.Frame):
         self.m_button1300.Bind(wx.EVT_LEFT_DOWN, self.onShowAllMoniterResult)
         self.m_button131.Bind(wx.EVT_LEFT_DOWN, self.onStartHTtrading)
         self.m_button1311.Bind(wx.EVT_LEFT_DOWN, self.onStopHTtrading)
+        self.m_button1312.Bind(wx.EVT_LEFT_DOWN, self.onHC)
         self.m_button14.Bind(wx.EVT_LEFT_DOWN, self.onGetAllStockList)
         self.m_button151.Bind(wx.EVT_LEFT_DOWN, self.onRun)
 
@@ -367,7 +371,9 @@ class MyFrame2(wx.Frame):
         wx.CallAfter(frame.updateUI, updateLog=u"正在后台遍历数据库，请等待")
         threading._start_new_thread(self.checkDataLen, ())
         event.Skip()
-
+    def onHC(self,event):
+        self.HC()
+        event.Skip()
     def ShowMoniterResult(self,allfile = True,dbg = False):
         if dbg:
             onemin_rcd = pickledata(PATH_ONE_MINUTE)
@@ -801,7 +807,34 @@ class MyFrame2(wx.Frame):
     6 昨日没有涨停
     """
 
+    def HC(self):#,db_name,stock):
+        db_name = '20161206hq_23.db'
+        stock = 'sz300164'
+        wx.CallAfter(frame.updateUI, updateLog=u"回测dbname：%s,stock:%s"%(db_name,stock))
+        conn = get_conn(__GPATH__+ os.sep +DATA +os.sep +db_name)
+        data0 = fetch_data_from_stock_table(conn, stock)
+        print("data len:",len(data0))
+        global G_SELECT_STOCK_RCD_LOG
+        G_SELECT_STOCK_RCD_LOG = ''
+        for i in range(20,len(data0) - 1):
+            print("i:",i)
+            data = data0[19:i]
+            res = tuple()
+            try:
+                res = self.askall_minuteVol(stock, data)
+                print("res:",res)
+            except Exception as e:
+                print(e)
 
+            try:
+                self.ConditionSelection(stock, data,__GPATH__+ os.sep +DATA +os.sep +db_name, res)
+            except Exception as e:
+                print(e)
+            try:
+                WrieTxtLogFile(G_SELECT_STOCK_RCD_LOG)
+            except Exception as e:
+                print(e)
+        print("finised!!")
 
 
     def FILTER(self):
@@ -848,10 +881,11 @@ class MyFrame2(wx.Frame):
                         except Exception as e:
                            print(e)
                     j = j + 1
-            """try:
+            try:
                 WrieTxtLogFile(G_SELECT_STOCK_RCD_LOG)
             except Exception as e:
                 print(e)
+            """
             global MAX_BUY_THREAD
             MAX_BUY_THREAD = MAX_BUY_THREAD + 1
             if MAX_BUY_THREAD < 10:
